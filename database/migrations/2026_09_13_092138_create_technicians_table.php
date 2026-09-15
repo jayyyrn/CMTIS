@@ -11,7 +11,10 @@ return new class extends Migration
         Schema::create('technicians', function (Blueprint $table) {
             $table->id('tech_id');
             $table->unsignedBigInteger('user_id');
-            $table->string('specialization')->nullable();
+            $table->enum('specialization', [
+                'electrical', 'aircon', 'carpentry',
+                'fabrication', 'plumbing', 'general'
+            ])->default('general');
             $table->integer('active_tasks')->default(0);
             $table->timestamps();
 

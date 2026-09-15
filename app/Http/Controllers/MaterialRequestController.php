@@ -6,6 +6,7 @@ use App\Models\AppNotification;
 use App\Models\AuditLog;
 use App\Models\MaintenanceRequest;
 use App\Models\MaterialRequest;
+use App\Models\StockTransaction;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,6 +33,8 @@ class MaterialRequestController extends Controller
             'status'        => 'pending',
         ]);
 
+        $req->update(['status' => 'waiting_for_materials']);
+
         AuditLog::record('material_request', "Material requested for {$req->reference_no}");
 
         $officers = User::where('role', 'inventory_officer')->get();
@@ -44,27 +47,64 @@ class MaterialRequestController extends Controller
             );
         }
 
-        return back()->with('success', 'Material requested.');
+        $supervisors = User::where('role', 'lead_technician')->get();
+        foreach ($supervisors as $s) {
+            AppNotification::notify(
+                $s->user_id,
+                'Material Request Needs Approval',
+                "Material requested for {$req->reference_no}.",
+                route('requests.show', $req->request_id)
+            );
+        }
+
+        return back()->with('success', 'Material requested. Awaiting approval.');
     }
 
-    public function returnMaterial(Request $request, $matReqId)
+    public function recordUsage(Request $request, $matReqId)
     {
-        $data = $request->validate(['qty_returned' => 'required|integer|min:1']);
+        $data = $request->validate([
+            'qty_used'     => 'required|integer|min:0',
+            'qty_returned' => 'required|integer|min:0',
+        ]);
 
-        $matReq = MaterialRequest::with('item')->findOrFail($matReqId);
+        $matReq = MaterialRequest::with('item', 'request')->findOrFail($matReqId);
+
+        if ($matReq->status !== 'released') {
+            return back()->withErrors(['qty_used' => 'Only released materials can have usage recorded.']);
+        }
+
+        if ($data['qty_used'] + $data['qty_returned'] > $matReq->qty_released) {
+            return back()->withErrors(['qty_used' => 'Used + Returned cannot exceed Qty Released.']);
+        }
 
         DB::transaction(function () use ($matReq, $data) {
-            $matReq->increment('qty_returned', $data['qty_returned']);
-            $matReq->update(['status' => 'returned']);
-            $matReq->item->increment('qty_on_hand', $data['qty_returned']);
+            $matReq->update([
+                'qty_used'     => $data['qty_used'],
+                'qty_returned' => $data['qty_returned'],
+                'status'       => 'returned',
+            ]);
+
+            if ($data['qty_returned'] > 0) {
+                $matReq->item->increment('qty_on_hand', $data['qty_returned']);
+
+                StockTransaction::create([
+                    'item_id'          => $matReq->item_id,
+                    'type'             => 'return',
+                    'quantity'         => $data['qty_returned'],
+                    'reference_no'     => $matReq->request->reference_no ?? null,
+                    'transaction_date' => now()->toDateString(),
+                    'handled_by'       => Auth::id(),
+                    'remarks'          => "Returned from request #{$matReq->request_id}",
+                ]);
+            }
         });
 
         AuditLog::record(
-            'return_material',
-            "Returned {$data['qty_returned']} of {$matReq->item->item_name}",
+            'material_usage',
+            "Recorded: {$data['qty_used']} used, {$data['qty_returned']} returned for {$matReq->item->item_name}",
             $matReq
         );
 
-        return back()->with('success', 'Material returned.');
+        return back()->with('success', 'Material usage recorded.');
     }
 }

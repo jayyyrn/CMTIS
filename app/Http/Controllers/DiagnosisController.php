@@ -74,11 +74,7 @@ class DiagnosisController extends Controller
             $req->update(['status' => 'verified']);
         }
 
-        AuditLog::record(
-            'verify_diagnosis',
-            "Diagnosis {$diagnosisId} - {$data['verification_status']}",
-            $diagnosis
-        );
+        AuditLog::record('verify_diagnosis', "Diagnosis {$diagnosisId} - {$data['verification_status']}", $diagnosis);
 
         AppNotification::notify(
             $diagnosis->tech_id,
@@ -89,4 +85,4 @@ class DiagnosisController extends Controller
 
         return back()->with('success', 'Verification saved.');
     }
-}
+}   

@@ -12,12 +12,8 @@ return new class extends Migration
             $table->id('user_id');
             $table->unsignedBigInteger('dept_id')->nullable();
             $table->enum('role', [
-                'teacher',
-                'coordinator',
-                'technician',
-                'lead_technician',
-                'inventory_officer',
-                'admin'
+                'teacher', 'coordinator', 'technician',
+                'lead_technician', 'inventory_officer', 'admin'
             ]);
             $table->string('first_name');
             $table->string('last_name');

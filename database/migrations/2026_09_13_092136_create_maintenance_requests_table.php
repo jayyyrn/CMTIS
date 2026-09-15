@@ -17,21 +17,18 @@ return new class extends Migration
             $table->unsignedBigInteger('dept_id')->nullable();
             $table->string('location');
             $table->text('problem_description');
+            $table->enum('work_type', [
+                'electrical', 'aircon', 'carpentry',
+                'fabrication', 'plumbing', 'general', 'other'
+            ])->default('general');
             $table->string('photo_evidence')->nullable();
             $table->string('after_repair_photo')->nullable();
             $table->enum('priority', ['low', 'medium', 'high', 'urgent'])->default('medium');
             $table->enum('status', [
-                'new',
-                'reviewed',
-                'assigned',
-                'inspecting',
-                'diagnosed',
-                'pending_verification',
-                'verified',
-                'repairing',
-                'repaired',
-                'closed',
-                'rejected'
+                'new', 'reviewed', 'assigned', 'inspecting',
+                'diagnosed', 'waiting_for_materials',
+                'pending_verification', 'verified',
+                'repairing', 'repaired', 'closed', 'rejected'
             ])->default('new');
             $table->date('date_reported');
             $table->timestamp('date_assigned')->nullable();

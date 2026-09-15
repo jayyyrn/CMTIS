@@ -11,9 +11,9 @@ class MaintenanceRequest extends Model
 
     protected $fillable = [
         'reference_no', 'teacher_id', 'equipment_id', 'assigned_tech_id',
-        'dept_id', 'location', 'problem_description', 'photo_evidence',
-        'after_repair_photo', 'priority', 'status', 'date_reported',
-        'date_assigned', 'date_completed',
+        'dept_id', 'location', 'problem_description', 'work_type',
+        'photo_evidence', 'after_repair_photo', 'priority', 'status',
+        'date_reported', 'date_assigned', 'date_completed',
     ];
 
     protected $casts = [
@@ -62,18 +62,47 @@ class MaintenanceRequest extends Model
     public function getStatusBadgeAttribute(): string
     {
         $colors = [
-            'new'                  => 'secondary',
-            'reviewed'             => 'info',
-            'assigned'             => 'primary',
-            'inspecting'           => 'warning',
-            'diagnosed'            => 'warning',
+            'new' => 'primary',
+            'reviewed' => 'info',
+            'assigned' => 'primary',
+            'inspecting' => 'warning',
+            'diagnosed' => 'warning',
+            'waiting_for_materials' => 'dark',
             'pending_verification' => 'danger',
-            'verified'             => 'info',
-            'repairing'            => 'primary',
-            'repaired'             => 'success',
-            'closed'               => 'success',
-            'rejected'             => 'dark',
+            'verified' => 'info',
+            'repairing' => 'primary',
+            'repaired' => 'success',
+            'closed' => 'success',
+            'rejected' => 'secondary',
         ];
         return $colors[$this->status] ?? 'secondary';
+    }
+
+    public function getPriorityBadgeAttribute(): string
+    {
+        return [
+            'low' => 'secondary',
+            'medium' => 'info',
+            'high' => 'warning',
+            'urgent' => 'danger',
+        ][$this->priority] ?? 'secondary';
+    }
+
+    public function getWorkTypeIconAttribute(): string
+    {
+        return [
+            'electrical' => 'bi-lightning-charge',
+            'aircon' => 'bi-snow',
+            'carpentry' => 'bi-hammer',
+            'fabrication' => 'bi-tools',
+            'plumbing' => 'bi-droplet',
+            'general' => 'bi-gear',
+            'other' => 'bi-question-circle',
+        ][$this->work_type] ?? 'bi-gear';
+    }
+
+    public function isWaitingForMaterials(): bool
+    {
+        return $this->status === 'waiting_for_materials';
     }
 }

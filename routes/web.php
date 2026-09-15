@@ -14,25 +14,26 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'));
 
-// ---- Auth (guest) ----
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
 });
+
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth')->name('logout');
 
-// ---- Authenticated ----
 Route::middleware('auth')->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
-    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
-    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.readAll');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])
+        ->whereNumber('id')->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])
+        ->name('notifications.readAll');
 
-    // ---- Requests (order matters: /create BEFORE /{id}) ----
+    // Requests — create BEFORE {id}
     Route::get('/requests', [RequestController::class, 'index'])->name('requests.index');
 
     Route::middleware('role:teacher')->group(function () {
@@ -43,13 +44,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/requests/{id}', [RequestController::class, 'show'])
         ->whereNumber('id')->name('requests.show');
 
-    // Assign technicians
     Route::middleware('role:coordinator,lead_technician,admin')->group(function () {
         Route::post('/requests/{id}/assign', [RequestController::class, 'assign'])
             ->whereNumber('id')->name('requests.assign');
     });
 
-    // Technician actions
     Route::middleware('role:technician,lead_technician')->group(function () {
         Route::post('/requests/{id}/status', [RequestController::class, 'updateStatus'])
             ->whereNumber('id')->name('requests.status');
@@ -60,25 +59,24 @@ Route::middleware('auth')->group(function () {
         Route::post('/requests/{id}/material', [MaterialRequestController::class, 'store'])
             ->whereNumber('id')->name('material.store');
 
-        Route::post('/material/{id}/return', [MaterialRequestController::class, 'returnMaterial'])
-            ->whereNumber('id')->name('material.return');
+        Route::post('/material/{id}/usage', [MaterialRequestController::class, 'recordUsage'])
+            ->whereNumber('id')->name('material.usage');
     });
 
-    // Supervisor verification
-    Route::middleware('role:lead_technician,admin')->group(function () {
-        Route::post('/diagnosis/{id}/verify', [DiagnosisController::class, 'verify'])
-            ->whereNumber('id')->name('diagnosis.verify');
-    });
+    Route::middleware('role:head,lead_technician,admin')->group(function () {
+    Route::post('/diagnosis/{id}/verify', [DiagnosisController::class, 'verify'])
+        ->whereNumber('id')->name('diagnosis.verify');
 
-    // Inventory officer actions
-    Route::middleware('role:inventory_officer,admin')->group(function () {
-        Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
-        Route::post('/inventory', [InventoryController::class, 'store'])->name('inventory.store');
-        Route::post('/inventory/{id}/stock-in', [InventoryController::class, 'stockIn'])
-            ->whereNumber('id')->name('inventory.stockIn');
-        Route::post('/material/{id}/release', [InventoryController::class, 'releaseMaterial'])
-            ->whereNumber('id')->name('material.release');
-    });
+    // Head endorses to LGU
+    Route::post('/material/{id}/approve', [InventoryController::class, 'approve'])
+        ->whereNumber('id')->name('material.approve');
+});
+
+Route::middleware('role:inventory_officer,admin')->group(function () {
+    // Inventory officer marks LGU-approved after EPR/PR arrives
+    Route::post('/material/{id}/lgu-approve', [InventoryController::class, 'markLguApproved'])
+        ->whereNumber('id')->name('material.lguApprove');
+});
 
     // Equipment
     Route::get('/equipment', [EquipmentController::class, 'index'])->name('equipment.index');
@@ -95,10 +93,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports/inventory', [ReportController::class, 'inventory'])->name('reports.inventory');
     });
 
-    // Admin only
     Route::middleware('role:admin')->group(function () {
         Route::get('/reports/audit', [ReportController::class, 'auditTrail'])->name('reports.audit');
-
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');

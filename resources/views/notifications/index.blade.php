@@ -5,10 +5,10 @@
   <ul class="list-group list-group-flush">
     @forelse($notifications as $n)
       <li class="list-group-item {{ $n->is_read ? '' : 'bg-light' }}">
-        <div class="d-flex justify-content-between">
+        <div class="d-flex justify-content-between align-items-start">
           <div>
             <strong>{{ $n->title }}</strong>
-            <p class="mb-0">{{ $n->message }}</p>
+            <p class="mb-1 small">{{ $n->message }}</p>
             <small class="text-muted">{{ $n->created_at->diffForHumans() }}</small>
           </div>
           @if(!$n->is_read)
@@ -20,7 +20,7 @@
         </div>
       </li>
     @empty
-      <li class="list-group-item text-muted">No notifications.</li>
+      <li class="list-group-item text-center text-muted py-4">No notifications.</li>
     @endforelse
   </ul>
 </div>

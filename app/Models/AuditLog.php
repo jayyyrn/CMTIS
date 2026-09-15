@@ -19,12 +19,12 @@ class AuditLog extends Model
     public static function record(string $action, ?string $description = null, $model = null): self
     {
         return self::create([
-            'user_id'    => auth()->id(),
-            'action'     => $action,
-            'model_type' => $model ? get_class($model) : null,
-            'model_id'   => $model ? $model->getKey() : null,
-            'description'=> $description,
-            'ip_address' => request()->ip(),
+            'user_id'     => auth()->id(),
+            'action'      => $action,
+            'model_type'  => $model ? get_class($model) : null,
+            'model_id'    => $model ? $model->getKey() : null,
+            'description' => $description,
+            'ip_address'  => request()->ip(),
         ]);
     }
 }

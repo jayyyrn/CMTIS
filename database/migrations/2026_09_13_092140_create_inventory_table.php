@@ -11,10 +11,13 @@ return new class extends Migration
         Schema::create('inventory', function (Blueprint $table) {
             $table->id('item_id');
             $table->string('item_name');
-            $table->string('category')->nullable();
+            $table->enum('category', [
+                'electrical', 'carpentry', 'plumbing',
+                'fabrication', 'consumables', 'tools', 'other'
+            ])->default('other');
             $table->string('unit')->default('pcs');
             $table->integer('qty_on_hand')->default(0);
-            $table->integer('low_stock_threshold')->default(5);
+            $table->integer('low_stock_threshold')->nullable()->default(null);
             $table->timestamps();
         });
     }

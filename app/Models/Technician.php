@@ -14,4 +14,9 @@ class Technician extends Model
     {
         return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
+
+    public function getSpecializationLabelAttribute(): string
+    {
+        return ucfirst($this->specialization);
+    }
 }

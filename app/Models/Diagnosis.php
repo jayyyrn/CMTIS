@@ -30,4 +30,13 @@ class Diagnosis extends Model
     {
         return $this->belongsTo(User::class, 'verified_by', 'user_id');
     }
+
+    public function getVerificationBadgeAttribute(): string
+    {
+        return [
+            'pending' => 'warning',
+            'verified' => 'success',
+            'rejected' => 'danger',
+        ][$this->verification_status] ?? 'secondary';
+    }
 }

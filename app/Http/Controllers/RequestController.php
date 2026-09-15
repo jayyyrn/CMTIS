@@ -28,7 +28,18 @@ class RequestController extends Controller
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-
+        if ($request->filled('work_type')) {
+            $query->where('work_type', $request->work_type);
+        }
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+        if ($request->filled('from')) {
+            $query->whereDate('date_reported', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('date_reported', '<=', $request->to);
+        }
         if ($request->filled('search')) {
             $s = $request->search;
             $query->where(function ($q) use ($s) {
@@ -55,6 +66,7 @@ class RequestController extends Controller
             'location'            => 'required|string|max:255',
             'equipment_id'        => 'nullable|exists:equipment,equipment_id',
             'problem_description' => 'required|string',
+            'work_type'           => 'required|in:electrical,aircon,carpentry,fabrication,plumbing,general,other',
             'priority'            => 'required|in:low,medium,high,urgent',
             'photo_evidence'      => 'nullable|image|max:5120',
         ]);
@@ -80,7 +92,7 @@ class RequestController extends Controller
             AppNotification::notify(
                 $c->user_id,
                 'New Maintenance Request',
-                "New request {$req->reference_no} submitted.",
+                "New {$req->work_type} request {$req->reference_no} submitted.",
                 route('requests.show', $req->request_id)
             );
         }
@@ -94,11 +106,14 @@ class RequestController extends Controller
         $req = MaintenanceRequest::with([
             'teacher', 'technician', 'equipment', 'department',
             'diagnoses.technician', 'diagnoses.verifier',
-            'materialRequests.item', 'materialRequests.requester', 'materialRequests.releaser',
+            'materialRequests.item', 'materialRequests.requester',
+            'materialRequests.approver', 'materialRequests.releaser',
         ])->findOrFail($id);
 
         $technicians = User::whereIn('role', ['technician', 'lead_technician'])
-            ->where('status', 'active')->get();
+            ->where('status', 'active')
+            ->with('technician')
+            ->get();
 
         $inventoryItems = Inventory::orderBy('item_name')->get();
 
@@ -112,18 +127,25 @@ class RequestController extends Controller
         ]);
 
         $req = MaintenanceRequest::findOrFail($id);
+        $tech = User::with('technician')->find($data['technician_id']);
+
+        $specialization = $tech->technician->specialization ?? 'general';
+        if ($specialization !== 'general' && $req->work_type !== $specialization) {
+            session()->flash('warning', "Note: {$tech->full_name}'s specialization ({$specialization}) differs from the request type ({$req->work_type}).");
+        }
+
         $req->update([
             'assigned_tech_id' => $data['technician_id'],
             'status'           => 'assigned',
             'date_assigned'    => now(),
         ]);
 
-        AuditLog::record('assign_request', "Assigned request {$req->reference_no}", $req);
+        AuditLog::record('assign_request', "Assigned {$req->reference_no} to {$tech->full_name}", $req);
 
         AppNotification::notify(
             (int) $data['technician_id'],
             'New Task Assigned',
-            "You have been assigned to {$req->reference_no}.",
+            "You have been assigned to {$req->reference_no} ({$req->work_type}).",
             route('requests.show', $req->request_id)
         );
 
@@ -133,13 +155,19 @@ class RequestController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $data = $request->validate([
-            'status' => 'required|in:new,reviewed,assigned,inspecting,diagnosed,pending_verification,verified,repairing,repaired,closed,rejected',
+            'status' => 'required|in:new,reviewed,assigned,inspecting,diagnosed,waiting_for_materials,pending_verification,verified,repairing,repaired,closed,rejected',
             'after_repair_photo' => 'nullable|image|max:5120',
         ]);
 
         $req = MaintenanceRequest::findOrFail($id);
-        $old = $req->status;
 
+        if ($data['status'] === 'repaired'
+            && !$request->hasFile('after_repair_photo')
+            && !$req->after_repair_photo) {
+            return back()->withErrors(['after_repair_photo' => 'Completion photo is required before marking as repaired.']);
+        }
+
+        $old = $req->status;
         $req->status = $data['status'];
 
         if ($request->hasFile('after_repair_photo')) {

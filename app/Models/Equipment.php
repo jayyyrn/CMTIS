@@ -9,7 +9,6 @@ class Equipment extends Model
     protected $table = 'equipment';
     protected $primaryKey = 'equipment_id';
     protected $fillable = ['asset_no', 'name', 'location', 'dept_id', 'status', 'acquired_date'];
-
     protected $casts = ['acquired_date' => 'date'];
 
     public function department()

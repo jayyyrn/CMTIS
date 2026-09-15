@@ -24,4 +24,9 @@ class AppNotification extends Model
             'link'    => $link,
         ]);
     }
+
+    public static function unreadCountFor(int $userId): int
+    {
+        return self::where('user_id', $userId)->where('is_read', false)->count();
+    }
 }

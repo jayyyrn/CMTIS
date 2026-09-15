@@ -11,9 +11,24 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::with('department')->paginate(20);
+        $query = User::with('department');
+
+        if ($request->filled('role')) {
+            $query->where('role', $request->role);
+        }
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('first_name', 'like', "%$s%")
+                  ->orWhere('last_name', 'like', "%$s%")
+                  ->orWhere('username', 'like', "%$s%")
+                  ->orWhere('email', 'like', "%$s%");
+            });
+        }
+
+        $users = $query->paginate(20)->withQueryString();
         return view('users.index', compact('users'));
     }
 
@@ -31,9 +46,13 @@ class UserController extends Controller
             'username'   => 'required|string|unique:users,username',
             'email'      => 'required|email|unique:users,email',
             'password'   => 'required|string|min:6',
-            'role'       => 'required|in:teacher,coordinator,technician,lead_technician,inventory_officer,admin',
+            'role' => 'required|in:teacher,coordinator,technician,lead_technician,inventory_officer,head,admin',
             'dept_id'    => 'nullable|exists:departments,dept_id',
+            'specialization' => 'nullable|in:electrical,aircon,carpentry,fabrication,plumbing,general',
         ]);
+
+        $specialization = $data['specialization'] ?? 'general';
+        unset($data['specialization']);
 
         $data['password'] = Hash::make($data['password']);
         $data['status']   = 'active';
@@ -43,11 +62,11 @@ class UserController extends Controller
         if (in_array($data['role'], ['technician', 'lead_technician'], true)) {
             Technician::create([
                 'user_id'        => $user->user_id,
-                'specialization' => null,
+                'specialization' => $specialization,
             ]);
         }
 
-        AuditLog::record('create_user', "Created user {$user->username}", $user);
+        AuditLog::record('create_user', "Created user {$user->username} ({$user->role})", $user);
 
         return redirect()->route('users.index')->with('success', 'User created.');
     }
@@ -55,10 +74,15 @@ class UserController extends Controller
     public function toggleStatus($id)
     {
         $user = User::findOrFail($id);
+
+        if ($user->user_id === auth()->id()) {
+            return back()->withErrors(['user' => 'You cannot deactivate your own account.']);
+        }
+
         $user->status = $user->status === 'active' ? 'inactive' : 'active';
         $user->save();
 
-        AuditLog::record('toggle_user', "Toggled user {$user->username}", $user);
+        AuditLog::record('toggle_user', "Toggled user {$user->username} to {$user->status}", $user);
 
         return back()->with('success', 'User status updated.');
     }

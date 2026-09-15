@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\Department;
 use App\Models\Equipment;
 use Illuminate\Http\Request;
 
@@ -20,10 +21,14 @@ class EquipmentController extends Controller
                   ->orWhere('location', 'like', "%$s%");
             });
         }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
 
         $equipment = $query->orderBy('name')->paginate(20)->withQueryString();
+        $departments = Department::orderBy('dept_name')->get();
 
-        return view('equipment.index', compact('equipment'));
+        return view('equipment.index', compact('equipment', 'departments'));
     }
 
     public function store(Request $request)
@@ -38,7 +43,6 @@ class EquipmentController extends Controller
         ]);
 
         $eq = Equipment::create($data);
-
         AuditLog::record('create_equipment', "Added equipment {$eq->asset_no}", $eq);
 
         return back()->with('success', 'Equipment added.');
@@ -48,7 +52,7 @@ class EquipmentController extends Controller
     {
         $equipment = Equipment::findOrFail($id);
         $requests = $equipment->requests()
-            ->with('technician', 'teacher')
+            ->with('technician', 'teacher', 'diagnoses', 'materialRequests.item')
             ->latest()
             ->get();
 

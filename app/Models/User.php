@@ -62,4 +62,9 @@ class User extends Authenticatable
     {
         return in_array($this->role, $roles, true);
     }
+
+    public function getInitialsAttribute(): string
+    {
+        return strtoupper(substr($this->first_name, 0, 1) . substr($this->last_name, 0, 1));
+    }
 }
